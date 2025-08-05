@@ -86,6 +86,15 @@
       width: 50px;
       font-size: 0.9rem;
       text-align: center;
+      font-weight: bold;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    .promedio-aprobado {
+      color: green;
+    }
+    .promedio-reprobado {
+      color: red;
     }
   </style>
 </head>
@@ -151,6 +160,42 @@
       localStorage.setItem("promediosRamos", JSON.stringify(promedios));
     }
 
+    function actualizarColorPromedio(input) {
+      const valor = parseFloat(input.value);
+      input.classList.remove("promedio-aprobado", "promedio-reprobado");
+      if (!isNaN(valor)) {
+        if (valor >= 4.0) {
+          input.classList.add("promedio-aprobado");
+        } else {
+          input.classList.add("promedio-reprobado");
+        }
+      }
+    }
+
+    function estaAprobado(id) {
+      return estado[id] && parseFloat(promedios[id]) >= 4.0;
+    }
+
+    function actualizarBloqueos() {
+      document.querySelectorAll(".ramo").forEach(div => {
+        const id = div.dataset.id;
+        const ramo = ramos.find(r => r.id === id);
+        div.classList.remove("bloqueado", "aprobado");
+        const tooltipExistente = div.querySelector(".tooltip");
+        if (tooltipExistente) tooltipExistente.remove();
+
+        if (estaAprobado(id)) {
+          div.classList.add("aprobado");
+        } else if (ramo.prereq.some(p => !estaAprobado(p))) {
+          div.classList.add("bloqueado");
+          const tooltip = document.createElement("div");
+          tooltip.className = "tooltip";
+          tooltip.textContent = "Falta aprobar: " + ramo.prereq.filter(p => !estaAprobado(p)).join(", ");
+          div.appendChild(tooltip);
+        }
+      });
+    }
+
     function crearRamo(ramo) {
       const div = document.createElement("div");
       div.className = "ramo";
@@ -167,30 +212,24 @@
       inputProm.placeholder = "Prom.";
       inputProm.className = "promedio-input";
       inputProm.value = promedios[ramo.id] || "";
-      inputProm.addEventListener("change", () => {
+      actualizarColorPromedio(inputProm);
+
+      inputProm.addEventListener("input", () => {
         promedios[ramo.id] = inputProm.value;
         guardarPromedios();
+        actualizarColorPromedio(inputProm);
+        actualizarBloqueos();
       });
 
       div.appendChild(nombreSpan);
       div.appendChild(inputProm);
 
-      if (estado[ramo.id]) {
-        div.classList.add("aprobado");
-      } else if (ramo.prereq.some(p => !estado[p])) {
-        div.classList.add("bloqueado");
-        const tooltip = document.createElement("div");
-        tooltip.className = "tooltip";
-        tooltip.textContent = "Falta aprobar: " + ramo.prereq.filter(p => !estado[p]).join(", ");
-        div.appendChild(tooltip);
-      }
-
       div.addEventListener("click", (e) => {
         if (e.target.tagName === "INPUT") return;
         if (div.classList.contains("bloqueado")) return;
-        div.classList.toggle("aprobado");
-        estado[ramo.id] = div.classList.contains("aprobado");
+        estado[ramo.id] = !estado[ramo.id];
         guardarEstado();
+        actualizarBloqueos();
       });
 
       return div;
@@ -203,7 +242,8 @@
       ramos.filter(r => r.semestre === s).forEach(r => cont.appendChild(crearRamo(r)));
       (s % 2 === 1 ? document.getElementById("fila-superior") : document.getElementById("fila-inferior")).appendChild(cont);
     }
+
+    actualizarBloqueos();
   </script>
 </body>
 </html>
-
